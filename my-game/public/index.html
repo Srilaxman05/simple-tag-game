@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body style="margin:0; background: #333;">
+    <script>
+        const socket = io();
+        let sprites = {};
+        let myId;
+
+        const config = {
+            type: Phaser.AUTO, width: 800, height: 600,
+            scene: { create, update }
+        };
+        const game = new Phaser.Game(config);
+
+        function create() {
+            this.cursors = this.input.keyboard.createCursorKeys();
+            
+            socket.on('updatePlayers', (data) => {
+                myId = socket.id;
+                // Add/Move players
+                for (let id in data.players) {
+                    if (!sprites[id]) {
+                        sprites[id] = this.add.rectangle(0, 0, 30, 30, data.players[id].color);
+                    }
+                    sprites[id].x = data.players[id].x;
+                    sprites[id].y = data.players[id].y;
+                    
+                    // Highlight the "It" player with a red border
+                    sprites[id].setStrokeStyle(id === data.itPlayerId ? 6 : 0, 0xff0000);
+                }
+                // Cleanup players who left
+                for (let id in sprites) {
+                    if (!data.players[id]) { sprites[id].destroy(); delete sprites[id]; }
+                }
+            });
+        }
+
+        function update() {
+            if (sprites[myId]) {
+                let moved = false;
+                if (this.cursors.left.isDown) { sprites[myId].x -= 5; moved = true; }
+                if (this.cursors.right.isDown) { sprites[myId].x += 5; moved = true; }
+                if (this.cursors.up.isDown) { sprites[myId].y -= 5; moved = true; }
+                if (this.cursors.down.isDown) { sprites[myId].y += 5; moved = true; }
+                
+                if (moved) {
+                    socket.emit('move', { x: sprites[myId].x, y: sprites[myId].y });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
